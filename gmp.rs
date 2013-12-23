@@ -206,7 +206,7 @@ impl Mpz {
         unsafe {
             let len = __gmpz_sizeinbase(&self.mpz, base as c_int) as uint + 2;
             let dst = vec::from_elem(len, '0');
-            let pdst = vec::raw::to_ptr(dst);
+            let pdst = dst.as_ptr();
 
             str::raw::from_c_str(__gmpz_get_str(pdst as *c_char, base as c_int, &self.mpz))
         }
