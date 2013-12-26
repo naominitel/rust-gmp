@@ -1,9 +1,5 @@
 #[feature(globs)];
-#[link(name = "gmp",
-       vers = "0.1.0",
-       uuid = "a92b7244-82a4-4825-9951-1d475b1296f9",
-       url = "https://github.com/thestinger/rust-gmp")];
-
+#[crate_id = "gmp#0.1.0"]; 
 #[comment = "gmp bindings"];
 #[license = "MIT"];
 #[crate_type = "lib"];
