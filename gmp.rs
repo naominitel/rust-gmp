@@ -1,22 +1,23 @@
-#[feature(globs)];
-#[crate_id = "gmp#0.1.0"]; 
-#[comment = "gmp bindings"];
-#[license = "MIT"];
-#[crate_type = "lib"];
+#![feature(globs)]
+#![crate_id = "gmp#0.1.0"]
+#![comment = "gmp bindings"]
+#![license = "MIT"]
+#![crate_type = "lib"]
 
-extern mod std;
+extern crate libc;
 
+use libc::{c_char, c_double, c_int, c_long, c_ulong, c_void, size_t};
+use std::fmt;
 use std::from_str::FromStr;
-use std::libc::{c_char, c_double, c_int, c_long, c_ulong, c_void, size_t};
 use std::num::{One, Zero};
-use std::unstable::intrinsics::uninit;
+use std::intrinsics::uninit;
 use std::mem::size_of;
-use std::{cmp, str, to_str, vec, num};
+use std::{cmp, str, num};
 
 struct mpz_struct {
     _mp_alloc: c_int,
     _mp_size: c_int,
-    _mp_d: *c_void
+    _mp_d: *const c_void
 }
 
 struct mpq_struct {
@@ -30,21 +31,21 @@ struct mpf_struct {
     _mp_prec: c_int,
     _mp_size: c_int,
     _mp_exp: mp_exp_t,
-    _mp_d: *c_void
+    _mp_d: *const c_void
 }
 
 struct gmp_randstate_struct {
     _mp_seed: mpz_struct,
     _mp_alg: c_int,
-    _mp_algdata: *c_void
+    _mp_algdata: *const c_void
 }
 
 type mp_bitcnt_t = c_ulong;
-type mpz_srcptr = *mpz_struct;
+type mpz_srcptr = *const mpz_struct;
 type mpz_ptr = *mut mpz_struct;
-type mpq_srcptr = *mpq_struct;
+type mpq_srcptr = *const mpq_struct;
 type mpq_ptr = *mut mpq_struct;
-type mpf_srcptr = *mpf_struct;
+type mpf_srcptr = *const mpf_struct;
 type mpf_ptr = *mut mpf_struct;
 type gmp_randstate_t = *mut gmp_randstate_struct;
 
@@ -54,12 +55,12 @@ extern "C" {
     fn __gmpz_init2(x: mpz_ptr, n: mp_bitcnt_t);
     fn __gmpz_init_set(rop: mpz_ptr, op: mpz_srcptr);
     fn __gmpz_init_set_ui(rop: mpz_ptr, op: c_ulong);
-    fn __gmpz_init_set_str(rop: mpz_ptr, str: *c_char, base: c_int) -> c_int;
+    fn __gmpz_init_set_str(rop: mpz_ptr, str: *const c_char, base: c_int) -> c_int;
     fn __gmpz_clear(x: mpz_ptr);
     fn __gmpz_realloc2(x: mpz_ptr, n: mp_bitcnt_t);
     fn __gmpz_set(rop: mpz_ptr, op: mpz_srcptr);
-    fn __gmpz_set_str(rop: mpz_ptr, str: *c_char, base: c_int) -> c_int;
-    fn __gmpz_get_str(str: *c_char, base: c_int, op: mpz_srcptr) -> *c_char;
+    fn __gmpz_set_str(rop: mpz_ptr, str: *const c_char, base: c_int) -> c_int;
+    fn __gmpz_get_str(str: *const c_char, base: c_int, op: mpz_srcptr) -> *const c_char;
     fn __gmpz_sizeinbase(op: mpz_srcptr, base: c_int) -> size_t;
     fn __gmpz_cmp(op1: mpz_srcptr, op2: mpz_srcptr) -> c_int;
     fn __gmpz_cmp_ui(op1: mpz_srcptr, op2: c_ulong) -> c_int;
@@ -87,12 +88,12 @@ extern "C" {
     fn __gmpz_lcm(rop: mpz_ptr, op1: mpz_srcptr, op2: mpz_srcptr);
     fn __gmpz_invert(rop: mpz_ptr, op1: mpz_srcptr, op2: mpz_srcptr) -> c_int;
     fn __gmpz_import(rop: mpz_ptr, count: size_t, order: c_int, size: size_t,
-                     endian: c_int, nails: size_t, op: *c_void);
+                     endian: c_int, nails: size_t, op: *const c_void);
     fn __gmp_randinit_default(state: gmp_randstate_t);
     fn __gmp_randinit_mt(state: gmp_randstate_t);
     fn __gmp_randinit_lc_2exp(state: gmp_randstate_t, a: mpz_srcptr, c: c_ulong, m2exp: mp_bitcnt_t);
     fn __gmp_randinit_lc_2exp_size(state: gmp_randstate_t, size: mp_bitcnt_t);
-    fn __gmp_randinit_set(state: gmp_randstate_t, op: *gmp_randstate_struct);
+    fn __gmp_randinit_set(state: gmp_randstate_t, op: *const gmp_randstate_struct);
     fn __gmp_randclear(state: gmp_randstate_t);
     fn __gmp_randseed(state: gmp_randstate_t, seed: mpz_srcptr);
     fn __gmp_randseed_ui(state: gmp_randstate_t, seed: c_ulong);
@@ -139,7 +140,7 @@ extern "C" {
 }
 
 pub struct Mpz {
-    priv mpz: mpz_struct,
+    mpz: mpz_struct,
 }
 
 impl Drop for Mpz {
@@ -198,13 +199,13 @@ impl Mpz {
     }
 
     // TODO: fail on an invalid base
-    pub fn to_str_radix(&self, base: int) -> ~str {
+    pub fn to_str_radix(&self, base: int) -> String {
         unsafe {
             let len = __gmpz_sizeinbase(&self.mpz, base as c_int) as uint + 2;
-            let dst = vec::from_elem(len, '0');
+            let dst = Vec::from_elem(len, '0');
             let pdst = dst.as_ptr();
 
-            str::raw::from_c_str(__gmpz_get_str(pdst as *c_char, base as c_int, &self.mpz))
+            str::raw::from_c_str(__gmpz_get_str(pdst as *const c_char, base as c_int, &self.mpz))
         }
     }
 
@@ -291,7 +292,7 @@ impl Clone for Mpz {
     }
 }
 
-impl cmp::Eq for Mpz {
+impl cmp::PartialEq for Mpz {
     fn eq(&self, other: &Mpz) -> bool {
         unsafe { __gmpz_cmp(&self.mpz, &other.mpz) == 0 }
     }
@@ -300,7 +301,15 @@ impl cmp::Eq for Mpz {
     }
 }
 
-impl cmp::Ord for Mpz {
+impl cmp::PartialOrd for Mpz {
+    fn partial_cmp(&self, other: &Mpz) -> Option<Ordering> {
+        Some(match unsafe { __gmpz_cmp(&self.mpz, &other.mpz) } {
+            x if x < 0 => Less,
+            x if x > 0 => Greater,
+            _ => Equal
+        })
+    }
+
     fn lt(&self, other: &Mpz) -> bool {
         unsafe { __gmpz_cmp(&self.mpz, &other.mpz) < 0 }
     }
@@ -349,7 +358,7 @@ impl Div<Mpz, Mpz> for Mpz {
     fn div(&self, other: &Mpz) -> Mpz {
         unsafe {
             if self.is_zero() {
-                fail!(~"divide by zero")
+                fail!(String::from_str("divide by zero"))
             }
 
             let mut res = Mpz::new();
@@ -363,7 +372,7 @@ impl Rem<Mpz, Mpz> for Mpz {
     fn rem(&self, other: &Mpz) -> Mpz {
         unsafe {
             if self.is_zero() {
-                fail!(~"divide by zero")
+                fail!(String::from_str("divide by zero"))
             }
 
             let mut res = Mpz::new();
@@ -385,10 +394,10 @@ impl Neg<Mpz> for Mpz {
 
 impl ToPrimitive for Mpz {
     fn to_i64(&self) -> Option<i64> {
-        fail!(~"not implemented")
+        fail!(String::from_str("not implemented"))
     }
     fn to_u64(&self) -> Option<u64> {
-        fail!(~"not implemented")
+        fail!(String::from_str("not implemented"))
     }
 }
 
@@ -397,7 +406,7 @@ impl FromPrimitive for Mpz {
         unsafe {
             let mut res = Mpz::new();
             __gmpz_import(&mut res.mpz, 1, 1, size_of::<u64>() as size_t, 0, 0,
-                          std::util::id::<*u64>(&other) as *c_void);
+                          &other as *const u64 as *const c_void);
             Some(res)
         }
     }
@@ -405,7 +414,7 @@ impl FromPrimitive for Mpz {
         unsafe {
             let mut res = Mpz::new();
             __gmpz_import(&mut res.mpz, 1, 1, size_of::<i64>() as size_t, 0, 0,
-                          std::util::id::<*i64>(&other.abs()) as *c_void);
+                          &other.abs() as *const i64 as *const c_void);
             if other.is_negative() {
                 __gmpz_neg(&mut res.mpz, &res.mpz)
             }
@@ -487,14 +496,14 @@ impl FromStr for Mpz {
     }
 }
 
-impl to_str::ToStr for Mpz {
-    fn to_str(&self) -> ~str {
-        self.to_str_radix(10)
+impl fmt::Show for Mpz {
+    fn fmt(&self, fmt: &mut fmt::Formatter) -> fmt::Result {
+        fmt.pad(self.to_str_radix(10).as_slice())
     }
 }
 
 pub struct RandState {
-    priv state: gmp_randstate_struct,
+    state: gmp_randstate_struct,
 }
 
 impl Drop for RandState {
@@ -574,7 +583,7 @@ impl Clone for RandState {
 }
 
 pub struct Mpq {
-    priv mpq: mpq_struct,
+    mpq: mpq_struct,
 }
 
 impl Drop for Mpq {
@@ -633,7 +642,7 @@ impl Mpq {
     pub fn invert(&self) -> Mpq {
         unsafe {
             if self.is_zero() {
-                fail!(~"divide by zero")
+                fail!(String::from_str("divide by zero"))
             }
 
             let mut res = Mpq::new();
@@ -651,7 +660,7 @@ impl Clone for Mpq {
     }
 }
 
-impl cmp::Eq for Mpq {
+impl cmp::PartialEq for Mpq {
     fn eq(&self, other: &Mpq) -> bool {
         unsafe { __gmpq_equal(&self.mpq, &other.mpq) != 0 }
     }
@@ -660,7 +669,15 @@ impl cmp::Eq for Mpq {
     }
 }
 
-impl cmp::Ord for Mpq {
+impl cmp::PartialOrd for Mpq {
+    fn partial_cmp(&self, other: &Mpq) -> Option<Ordering> {
+        Some(match unsafe { __gmpq_cmp(&self.mpq, &other.mpq) } {
+            x if x < 0 => Less,
+            x if x > 0 => Greater,
+            _ => Equal
+        })
+    }
+
     fn lt(&self, other: &Mpq) -> bool {
         unsafe { __gmpq_cmp(&self.mpq, &other.mpq) < 0 }
     }
@@ -709,7 +726,7 @@ impl Div<Mpq, Mpq> for Mpq {
     fn div(&self, other: &Mpq) -> Mpq {
         unsafe {
             if self.is_zero() {
-                fail!(~"divide by zero")
+                fail!(String::from_str("divide by zero"))
             }
 
             let mut res = Mpq::new();
@@ -731,10 +748,10 @@ impl Neg<Mpq> for Mpq {
 
 impl ToPrimitive for Mpq {
     fn to_i64(&self) -> Option<i64> {
-        fail!(~"not implemented")
+        fail!(String::from_str("not implemented"))
     }
     fn to_u64(&self) -> Option<u64> {
-        fail!(~"not implemented")
+        fail!(String::from_str("not implemented"))
     }
 }
 
@@ -767,7 +784,7 @@ impl Zero for Mpq {
 }
 
 pub struct Mpf {
-    priv mpf: mpf_struct,
+    mpf: mpf_struct,
 }
 
 impl Drop for Mpf {
@@ -829,7 +846,7 @@ impl Mpf {
 
     pub fn reldiff(&self, other: &Mpf) -> Mpf {
         unsafe {
-            let mut res = Mpf::new(num::max(self.get_prec() as uint,
+            let mut res = Mpf::new(cmp::max(self.get_prec() as uint,
                                          other.get_prec() as uint) as c_ulong);
             __gmpf_reldiff(&mut res.mpf, &self.mpf, &other.mpf);
             res
@@ -847,7 +864,7 @@ impl Clone for Mpf {
     }
 }
 
-impl cmp::Eq for Mpf {
+impl cmp::PartialEq for Mpf {
     fn eq(&self, other: &Mpf) -> bool {
         unsafe { __gmpf_cmp(&self.mpf, &other.mpf) == 0 }
     }
@@ -856,7 +873,15 @@ impl cmp::Eq for Mpf {
     }
 }
 
-impl cmp::Ord for Mpf {
+impl cmp::PartialOrd for Mpf {
+    fn partial_cmp(&self, other: &Mpf) -> Option<Ordering> {
+        Some(match unsafe { __gmpf_cmp(&self.mpf, &other.mpf) } {
+            x if x < 0 => Less,
+            x if x > 0 => Greater,
+            _ => Equal
+        })
+    }
+
     fn lt(&self, other: &Mpf) -> bool {
         unsafe { __gmpf_cmp(&self.mpf, &other.mpf) < 0 }
     }
@@ -874,7 +899,7 @@ impl cmp::Ord for Mpf {
 impl Add<Mpf, Mpf> for Mpf {
     fn add(&self, other: &Mpf) -> Mpf {
         unsafe {
-            let mut res = Mpf::new(num::max(self.get_prec() as uint,
+            let mut res = Mpf::new(cmp::max(self.get_prec() as uint,
                                              other.get_prec() as uint) as c_ulong);
             __gmpf_add(&mut res.mpf, &self.mpf, &other.mpf);
             res
@@ -885,7 +910,7 @@ impl Add<Mpf, Mpf> for Mpf {
 impl Sub<Mpf, Mpf> for Mpf {
     fn sub(&self, other: &Mpf) -> Mpf {
         unsafe {
-            let mut res = Mpf::new(num::max(self.get_prec() as uint,
+            let mut res = Mpf::new(cmp::max(self.get_prec() as uint,
                                              other.get_prec() as uint) as c_ulong);
             __gmpf_sub(&mut res.mpf, &self.mpf, &other.mpf);
             res
@@ -896,7 +921,7 @@ impl Sub<Mpf, Mpf> for Mpf {
 impl Mul<Mpf, Mpf> for Mpf {
     fn mul(&self, other: &Mpf) -> Mpf {
         unsafe {
-            let mut res = Mpf::new(num::max(self.get_prec() as uint,
+            let mut res = Mpf::new(cmp::max(self.get_prec() as uint,
                                              other.get_prec() as uint) as c_ulong);
             __gmpf_mul(&mut res.mpf, &self.mpf, &other.mpf);
             res
@@ -908,10 +933,10 @@ impl Div<Mpf, Mpf> for Mpf {
     fn div(&self, other: &Mpf) -> Mpf {
         unsafe {
             if __gmpf_cmp_ui(&self.mpf, 0) == 0 {
-                fail!(~"divide by zero")
+                fail!(String::from_str("divide by zero"))
             }
 
-            let mut res = Mpf::new(num::max(self.get_prec() as uint,
+            let mut res = Mpf::new(cmp::max(self.get_prec() as uint,
                                              other.get_prec() as uint) as c_ulong);
             __gmpf_div(&mut res.mpf, &self.mpf, &other.mpf);
             res
@@ -935,7 +960,7 @@ mod test_mpz {
     use std::from_str::FromStr;
     use std::num::{One, IntConvertible};
     use std::libc::c_ulong;
-    use std::{uint, vec};
+    use std::{uint, Vec};
 
     #[test]
     fn test_set() {
@@ -1039,13 +1064,13 @@ mod test_mpz {
     #[test]
     fn test_to_str_radix() {
         let x: Mpz = IntConvertible::from_int(255);
-        assert!(x.to_str_radix(16) == ~"ff");
+        assert!(x.to_str_radix(16) == String::from_str("ff"));
     }
 
     #[test]
     fn test_to_str() {
         let x: Mpz = FromStr::from_str("1234567890").unwrap();
-        assert!(x.to_str() == ~"1234567890");
+        assert!(x.to_str() == String::from_str("1234567890"));
     }
 
     #[test]
@@ -1064,7 +1089,7 @@ mod test_mpz {
     #[test]
     fn test_from_int() {
         let x: Mpz = IntConvertible::from_int(150);
-        assert!(x.to_str() == ~"150");
+        assert!(x.to_str() == String::from_str("150"));
         assert!(x == FromStr::from_str("150").unwrap());
     }
 
@@ -1178,7 +1203,7 @@ mod test_mpz {
     fn test_bit_fiddling() {
         let mut xs = IntConvertible::from_int::<Mpz>(0b1010_1000_0010_0011);
         assert!(xs.bit_length() == 16);
-        let mut ys = vec::reversed([true, false, true, false,
+        let mut ys = Vec::reversed([true, false, true, false,
                                    true, false, false, false,
                                    false, false, true, false,
                                    false, false, true, true]);
