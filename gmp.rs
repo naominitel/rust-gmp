@@ -198,14 +198,18 @@ impl Mpz {
         })
     }
 
-    // TODO: fail on an invalid base
+    // TODO: panic on an invalid base
     pub fn to_str_radix(&self, base: int) -> String {
         unsafe {
             let len = __gmpz_sizeinbase(&self.mpz, base as c_int) as uint + 2;
             let dst = Vec::from_elem(len, '0');
             let pdst = dst.as_ptr();
 
-            str::raw::from_c_str(__gmpz_get_str(pdst as *const c_char, base as c_int, &self.mpz))
+            std::string::raw::from_buf(__gmpz_get_str(
+                pdst as *const c_char,
+                base as c_int,
+                &self.mpz
+            ) as *const u8)
         }
     }
 
@@ -358,7 +362,7 @@ impl Div<Mpz, Mpz> for Mpz {
     fn div(&self, other: &Mpz) -> Mpz {
         unsafe {
             if self.is_zero() {
-                fail!(String::from_str("divide by zero"))
+                panic!(String::from_str("divide by zero"))
             }
 
             let mut res = Mpz::new();
@@ -372,7 +376,7 @@ impl Rem<Mpz, Mpz> for Mpz {
     fn rem(&self, other: &Mpz) -> Mpz {
         unsafe {
             if self.is_zero() {
-                fail!(String::from_str("divide by zero"))
+                panic!(String::from_str("divide by zero"))
             }
 
             let mut res = Mpz::new();
@@ -394,10 +398,10 @@ impl Neg<Mpz> for Mpz {
 
 impl ToPrimitive for Mpz {
     fn to_i64(&self) -> Option<i64> {
-        fail!(String::from_str("not implemented"))
+        panic!(String::from_str("not implemented"))
     }
     fn to_u64(&self) -> Option<u64> {
-        fail!(String::from_str("not implemented"))
+        panic!(String::from_str("not implemented"))
     }
 }
 
@@ -642,7 +646,7 @@ impl Mpq {
     pub fn invert(&self) -> Mpq {
         unsafe {
             if self.is_zero() {
-                fail!(String::from_str("divide by zero"))
+                panic!(String::from_str("divide by zero"))
             }
 
             let mut res = Mpq::new();
@@ -726,7 +730,7 @@ impl Div<Mpq, Mpq> for Mpq {
     fn div(&self, other: &Mpq) -> Mpq {
         unsafe {
             if self.is_zero() {
-                fail!(String::from_str("divide by zero"))
+                panic!(String::from_str("divide by zero"))
             }
 
             let mut res = Mpq::new();
@@ -748,10 +752,10 @@ impl Neg<Mpq> for Mpq {
 
 impl ToPrimitive for Mpq {
     fn to_i64(&self) -> Option<i64> {
-        fail!(String::from_str("not implemented"))
+        panic!(String::from_str("not implemented"))
     }
     fn to_u64(&self) -> Option<u64> {
-        fail!(String::from_str("not implemented"))
+        panic!(String::from_str("not implemented"))
     }
 }
 
@@ -933,7 +937,7 @@ impl Div<Mpf, Mpf> for Mpf {
     fn div(&self, other: &Mpf) -> Mpf {
         unsafe {
             if __gmpf_cmp_ui(&self.mpf, 0) == 0 {
-                fail!(String::from_str("divide by zero"))
+                panic!(String::from_str("divide by zero"))
             }
 
             let mut res = Mpf::new(cmp::max(self.get_prec() as uint,
@@ -982,26 +986,26 @@ mod test_mpz {
     }
 
     #[test]
-    #[should_fail]
+    #[should_panic]
     fn test_from_str_radix_lower_bound() {
         Mpz::from_str_radix("", 1);
     }
 
     #[test]
-    #[should_fail]
+    #[should_panic]
     fn test_from_str_radix_upper_bound() {
         Mpz::from_str_radix("", 63);
     }
 
     #[test]
-    #[should_fail]
+    #[should_panic]
     fn test_set_from_str_radix_lower_bound() {
         let mut x = Mpz::new();
         x.set_from_str_radix("", 1);
     }
 
     #[test]
-    #[should_fail]
+    #[should_panic]
     fn test_set_from_str_radix_upper_bound() {
         let mut x = Mpz::new();
         x.set_from_str_radix("", 63);
@@ -1031,14 +1035,14 @@ mod test_mpz {
     }
 
     #[test]
-    #[should_fail]
+    #[should_panic]
     fn test_div_zero() {
         let x = Mpz::new();
         x / x;
     }
 
     #[test]
-    #[should_fail]
+    #[should_panic]
     fn test_rem_zero() {
         let x = Mpz::new();
         x % x;
@@ -1259,14 +1263,14 @@ mod test_mpq {
     }
 
     #[test]
-    #[should_fail]
+    #[should_panic]
     fn test_div_zero() {
         let x = Mpq::new();
         x / x;
     }
 
     #[test]
-    #[should_fail]
+    #[should_panic]
     fn test_invert_zero() {
         Mpq::new().invert();
     }
@@ -1277,7 +1281,7 @@ mod test_mpf {
     use super::*;
 
     #[test]
-    #[should_fail]
+    #[should_panic]
     fn test_div_zero() {
         let x = Mpf::new(100);
         x / x;
