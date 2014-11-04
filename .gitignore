@@ -1,1 +1,4 @@
-/libgmp.rlib
+*.rlib
+*.dylib
+/target/
+Cargo.lock
