@@ -1,11 +1,11 @@
 
 mod mpz {
     use super::super::Mpz;
-    use std::from_str::FromStr;
-    use std::num::{Zero, One};
+    use std::str::FromStr;
+    use std::num::FromPrimitive;
     use libc::c_ulong;
 
-    use std::hash::hash;
+    use std::hash::{hash, SipHasher};
 
     #[test]
     fn test_set() {
@@ -79,31 +79,35 @@ mod mpz {
     #[should_fail]
     fn test_div_zero() {
         let x = Mpz::new();
-        x / x;
+        &x / &x;
     }
 
     #[test]
     #[should_fail]
     fn test_rem_zero() {
         let x = Mpz::new();
-        x % x;
+        &x % &x;
     }
 
     #[test]
     fn test_div_round() {
         let x: Mpz = FromPrimitive::from_int(2).unwrap();
         let y: Mpz = FromPrimitive::from_int(3).unwrap();
-        assert!((x / y).to_string() == (2i / 3).to_string());
-        assert!((x / -y).to_string() == (2i / -3).to_string());
+        let s1 =(&x / &y).to_string() ;
+        let s2 = (2i32 / 3).to_string();
+        println!("{}", s1.len());
+        println!("{}", s2.len());
+        assert!((&x / &y).to_string() == (2i32 / 3).to_string());
+        assert!((&x / &-&y).to_string() == (2i32 / -3).to_string());
     }
 
     #[test]
     fn test_rem() {
         let x: Mpz = FromPrimitive::from_int(20).unwrap();
         let y: Mpz = FromPrimitive::from_int(3).unwrap();
-        assert!((x % y).to_string() == (20i % 3).to_string());
-        assert!((x % -y).to_string() == (20i % -3).to_string());
-        assert!((-x % y).to_string() == (-20i % 3).to_string());
+        assert!((&x % &y).to_string() == (20i32 % 3).to_string());
+        assert!((&x % &-&y).to_string() == (20i32 % -3).to_string());
+        assert!((&-&x % &y).to_string() == (-20i32 % 3).to_string());
     }
 
     #[test]
@@ -130,7 +134,7 @@ mod mpz {
         let b = a.clone();
         let aplusb: Mpz = FromPrimitive::from_int(200).unwrap();
         assert!(b == a);
-        assert!(a + b == aplusb);
+        assert!(&a + &b == aplusb);
     }
 
     #[test]
@@ -144,8 +148,8 @@ mod mpz {
     fn test_abs() {
         let x: Mpz = FromPrimitive::from_int(1000).unwrap();
         let y: Mpz = FromPrimitive::from_int(-1000).unwrap();
-        assert!(-x == y);
-        assert!(x == -y);
+        assert!(-&x == y);
+        assert!(x == -&y);
         assert!(x == y.abs());
         assert!(x.abs() == y.abs());
     }
@@ -186,7 +190,7 @@ mod mpz {
         let mpza: Mpz = FromPrimitive::from_int(a).unwrap();
         let mpzb: Mpz = FromPrimitive::from_int(b).unwrap();
         let mpzres: Mpz = FromPrimitive::from_int(a & b).unwrap();
-        assert!(mpza & mpzb == mpzres);
+        assert!(&mpza & &mpzb == mpzres);
     }
 
     #[test]
@@ -196,7 +200,7 @@ mod mpz {
         let mpza: Mpz = FromPrimitive::from_int(a).unwrap();
         let mpzb: Mpz = FromPrimitive::from_int(b).unwrap();
         let mpzres: Mpz = FromPrimitive::from_int(a | b).unwrap();
-        assert!(mpza | mpzb == mpzres);
+        assert!(&mpza | &mpzb == mpzres);
     }
 
     #[test]
@@ -206,25 +210,25 @@ mod mpz {
         let mpza: Mpz = FromPrimitive::from_int(a).unwrap();
         let mpzb: Mpz = FromPrimitive::from_int(b).unwrap();
         let mpzres: Mpz = FromPrimitive::from_int(a ^ b).unwrap();
-        assert!(mpza ^ mpzb == mpzres);
+        assert!(&mpza ^ &mpzb == mpzres);
     }
 
     #[test]
     fn test_shifts() {
         let i = 227;
         let j: Mpz = FromPrimitive::from_int(i).unwrap();
-        assert!((i << 4).to_string() == (j << 4).to_string());
-        assert!((-i << 4).to_string() == (-j << 4).to_string());
-        assert!((i >> 4).to_string() == (j >> 4).to_string());
-        assert!((-i >> 4).to_string() == (-j >> 4).to_string());
+        assert!((i << 4).to_string() == (&j << 4).to_string());
+        assert!((-i << 4).to_string() == (&-&j << 4).to_string());
+        assert!((i >> 4).to_string() == (&j >> 4).to_string());
+        assert!((-i >> 4).to_string() == (&-&j >> 4).to_string());
     }
 
     #[test]
     fn test_compl() {
         let a: Mpz = FromPrimitive::from_int(13).unwrap();
         let b: Mpz = FromPrimitive::from_int(-442).unwrap();
-        assert!(a.compl().to_string() == (!13i).to_string());
-        assert!(b.compl().to_string() == (!-442i).to_string());
+        assert!(a.compl().to_string() == (!13i32).to_string());
+        assert!(b.compl().to_string() == (!-442i32).to_string());
     }
 
     #[test]
@@ -289,7 +293,7 @@ mod mpz {
         let twentyfour: Mpz = FromPrimitive::from_int(24).unwrap();
         let (g, s, t) = eighteen.gcdext(&twentyfour);
         assert!(g == six);
-        assert!(g == s*eighteen + t*twentyfour);
+        assert!(g == &(&s * &eighteen) + &(&t * &twentyfour));
     }
 
     #[test]
@@ -342,7 +346,7 @@ mod mpz {
 
     #[test]
     fn test_one() {
-        let onea: Mpz = One::one();
+        let onea: Mpz = Mpz::one();
         let oneb: Mpz = FromPrimitive::from_int(1).unwrap();
         assert!(onea == oneb);
     }
@@ -392,11 +396,11 @@ mod mpz {
 
     #[test]
     fn test_hash_short() {
-        let zero: Mpz = Zero::zero();
-        let one: Mpz = One::one();
-        let two = one + one;
-        assert!(hash(&zero) != hash(&one));
-        assert_eq!(hash(&one), hash(&(two - one)));
+        let zero: Mpz = Mpz::zero();
+        let one: Mpz = Mpz::one();
+        let two = &one + &one;
+        assert!(hash::<_, SipHasher>(&zero) != hash::<_, SipHasher>(&one));
+        assert_eq!(hash::<_, SipHasher>(&one), hash::<_, SipHasher>(&(&two - &one)));
     }
 
     #[test]
@@ -405,23 +409,24 @@ mod mpz {
                 .unwrap();
         let b = Mpz::from_str_radix("348917329847193287498312749187234192386", 10)
                 .unwrap();
-        let one: Mpz = One::one();
-        assert!(hash(&a) != hash(&b));
-        assert_eq!(hash(&a), hash(&(b + one)));
-        assert_eq!(hash(&(a - a)), hash(&(one - one)));
+        let one: Mpz = Mpz::one();
+        assert!(hash::<_, SipHasher>(&a) != hash::<_, SipHasher>(&b));
+        assert_eq!(hash::<_, SipHasher>(&a), hash::<_, SipHasher>(&(&b + &one)));
+        assert_eq!(hash::<_, SipHasher>(&(&a - &a)), hash::<_, SipHasher>(&(&one - &one)));
     }
 }
 
 mod rand {
+    use std::num::FromPrimitive;
     use super::super::{RandState, Mpz};
 
     #[test]
     fn test_randstate() {
         let mut state = RandState::new();
         state.seed_ui(42);
-        for _ in range(1u, 1000) {
-            for x in range(1i, 10) {
-                let upper: Mpz = FromPrimitive::from_int(x).unwrap();
+        for _ in range(1us, 1000) {
+            for x in range(1i32, 10) {
+                let upper: Mpz = FromPrimitive::from_i32(x).unwrap();
                 assert!(state.urandom(&upper) < upper);
             }
         }
@@ -429,12 +434,12 @@ mod rand {
 }
 
 mod mpq {
+    use std::num::FromPrimitive;
     use super::super::Mpq;
-    use std::num::One;
 
     #[test]
     fn test_one() {
-        let onea: Mpq = One::one();
+        let onea: Mpq = Mpq::one();
         let oneb: Mpq = FromPrimitive::from_int(1).unwrap();
         assert!(onea == oneb);
     }
@@ -443,7 +448,7 @@ mod mpq {
     #[should_fail]
     fn test_div_zero() {
         let x = Mpq::new();
-        x / x;
+        &x / &x;
     }
 
     #[test]
@@ -460,6 +465,6 @@ mod mpf {
     #[should_fail]
     fn test_div_zero() {
         let x = Mpf::new(100);
-        x / x;
+        &x / &x;
     }
 }
